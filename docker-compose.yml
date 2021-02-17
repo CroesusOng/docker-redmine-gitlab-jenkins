@@ -1,0 +1,114 @@
+version: '3.5'
+
+services:
+
+  nginx-proxy:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - redmine
+      - gitlab
+      - jenkins
+    restart: unless-stopped
+
+  redmine:
+    image: sameersbn/redmine:latest
+    environment:
+      DB_ADAPTER: postgresql
+      DB_HOST: redmine_postgres
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      MEMCACHE_HOST: redmine_memcached
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      REDMINE_BACKUPS_DIR: /home/redmine/backups
+      REDMINE_RELATIVE_URL_ROOT: /redmine
+    env_file:
+        - ".env"
+    volumes:
+      - redmine_data:/home/redmine/data
+      - gitlab_data:/home/redmine/gitlab:ro
+      - ./backups/redmine:/home/redmine/backups
+      - ./log/redmine:/var/log/redmine/
+    depends_on:
+      - redmine_postgres
+    restart: unless-stopped
+
+  redmine_postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    env_file:
+        - ".env"
+    volumes:
+      - redmine_postgresql_data:/var/lib/postgresql/data:rw
+    restart: unless-stopped
+  redmine_memcached:
+    image: memcached:latest
+    
+  gitlab:
+    restart: always
+    image: gitlab/gitlab-ce:latest
+    env_file:
+        - ".env"
+    volumes:
+      - gitlab_config:/etc/gitlab:Z
+      - gitlab_logs:/var/log/gitlab:Z
+      - gitlab_data:/var/opt/gitlab:Z
+      - ./backups/gitlab:/mnt/backups/gitlab:Z
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # URL
+        external_url 'http://gitlab/gitlab'
+        # Backup directory
+        gitlab_rails['backup_path'] = '/mnt/backups/gitlab'
+        # Timezone
+        gitlab_rails['time_zone'] = 'Asia/Tokyo'
+        # E-mail
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "smtp.gmail.com"
+        gitlab_rails['smtp_port'] = 587
+        gitlab_rails['smtp_user_name'] = "${SMTP_USER}"
+        gitlab_rails['smtp_password'] = "${SMTP_PASS}"
+        gitlab_rails['smtp_domain'] = "smtp.gmail.com"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['smtp_openssl_verify_mode'] = 'peer' # Can be: 'none', 'peer', 'client_once', 'fail_if_no_peer_cert', see http://api.rubyonrails.org/classes/ActionMailer/Base.html
+      # Add any other gitlab.rb configuration here, each on its own line
+      GITLAB_RELATIVE_URL_ROOT: /gitlab
+    restart: unless-stopped
+  jenkins:
+    #image: jenkins:latest
+    image: jenkins/jenkins
+    ports:
+      - "50000:50000"
+    environment:
+      JENKINS_OPTS: "--prefix=/jenkins"
+    env_file:
+        - ".env"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - ./backups/jenkins:/backups
+
+volumes:
+  redmine_postgresql_data:
+    driver: local
+  redmine_data:
+    driver: local
+  gitlab_config:
+    driver: local
+  gitlab_logs:
+    driver: local
+  gitlab_data:
+    driver: local
+  jenkins_data:
+    driver: local
+  gitlab_postgresql_data:
+    driver: local
