@@ -63,7 +63,11 @@ services:
       - gitlab_data:/var/opt/gitlab:Z
       - ./backups/gitlab:/mnt/backups/gitlab:Z
     environment:
-      GITLAB_OMNIBUS_CONFIG: |
+      GITLAB_OMNIBUS_CONFIG:
+        #nginx
+        nginx['client_max_body_size'] = "1200m"
+        #ssh port      
+        gitlab_rails['gitlab_shell_ssh_port'] = '2222'
         # URL
         external_url 'http://gitlab/gitlab'
         # Backup directory
