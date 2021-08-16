@@ -57,13 +57,15 @@ services:
     image: gitlab/gitlab-ce:latest
     env_file:
         - ".env"
+    ports:
+      - "2222:22"
     volumes:
       - gitlab_config:/etc/gitlab:Z
       - gitlab_logs:/var/log/gitlab:Z
       - gitlab_data:/var/opt/gitlab:Z
       - ./backups/gitlab:/mnt/backups/gitlab:Z
     environment:
-      GITLAB_OMNIBUS_CONFIG:
+      GITLAB_OMNIBUS_CONFIG: |
         #nginx
         nginx['client_max_body_size'] = "1200m"
         #ssh port      
